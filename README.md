@@ -1,5 +1,4 @@
-# arbo-fronteiras
-Repositório do Projeto Arboviroses nas Fronteiras
+#Repositório do Projeto Arboviroses nas Fronteiras#
 
 A fronteira internacional é uma região estratégica onde o risco de surtos de agravos provenientes do fluxo de pessoas, vetores e patógenos coexiste com dificuldades no fluxo de dados e informações, resultando em perdas de oportunidade para a ação. Essa importância é expressa na recomendação do Regulamento Sanitário internacional de fortalecimento de ações conjuntas bi-nacionais para vigilância epidemiológica nessas áreas (WHO, 2005). Essas parcerias, no entanto, são muitas vezes difíceis de serem estabelecidas ou mantidas de forma sustentável.
 
