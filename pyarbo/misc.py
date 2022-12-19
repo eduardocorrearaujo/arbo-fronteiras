@@ -38,11 +38,10 @@ def return_dengue_cases(data):
     Parameters
     ----------
     data : pandas.DataFrame
-        Data .
+        DataFrame.
 
     Returns
     -------
-
 
     Notes
     -----
