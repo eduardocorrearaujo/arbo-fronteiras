@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt 
 from scipy.integrate import solve_ivp
 from get_data import get_weather_data 
-from parameters import dict_d, dict_mu_a, dict_mu_m, dict_gamma_m, dict_theta_m
+from parameters import dict_d, dict_mu_a, dict_mu_m, dict_gamma_m, dict_theta_m, interpolate_params
 
 # Os parâmetros abaixo são constantes e não serão fitados, por essa razão são definidos com letra maiúscula 
 MU_H = 1/(365*76)    #human mortality rate - day^-1
@@ -77,48 +77,8 @@ def R_m(k,delta,gamma_m, mu_m, mu_a, c_m = 0, c_a = 0):
 
     return Rm
 
-def sup_cap_yang(df, k=7,w1=0.5, C0=5,C1=30,C2 =0.1):
-    '''
-    Função que realiza o cálculo da capacidade suporte variando de acordo com os dados 
-    climáticos seguindo a formulação do Yang. 
 
-    :params df: pd.DataFrame. O dataframe, obrigatoriamente, deve ter as colunas:
-                             - "daily_precipitation-mm"
-                             - "temp_min-celsius"
-                             - "temp_mean-celsius"
-
-    :params k = 7: número de dias anteriores que a chuva vai afetar
-    :params w1 = 0.5: efeito residual de chuvas passadas [1/ºC]
-    :params C0 = 5: Capacidade da chuva de produzir novos breeding sites
-    :params C1 = 30: Quanticade crítica de chuva na formação de breeding sites [mm]
-    :params C2 = 0.1: Variação independente nos breeding sites
-    '''
-    
-
-    #chuva, temperatura mínima, máxima no dia j
-    W = df["daily_precipitation-mm"]
-    T_min = df["temp_min-celsius"]
-    T_max = df["temp_mean-celsius"]
-    W_m = []
-
-    n = df.shape[0]
-
-    #números abaixo de 7 é 2015 !!
-    for j in range(k,n,1):#passagem dos dias a partir de k dias j=7 é dia 1
-        #somatório para o W_m(chuvas dos dias anteriores ao j-th dia)
-        soma = 0
-        for i in range(1,k+1,1):# somatória sempre de 1 até k dias anteriores
-            soma += (W[j-i])/(w1*(T_max[j-i]+T_min[j-i]))**i #summation
-
-        W_m.append(soma) #W_m[0] será j=7
-
-    #Os k primeiros valores do C são NaN
-    C = C2 + (C0*(W[k:]+ W_m))/(C1 + W[k:] + W_m)
-   
-    return C 
-
-
-def C(t, D, cap_t):
+#def C(t, D, cap_t):
     '''
     Função que retorna um valor para a capacidade suporte.
 
@@ -137,25 +97,7 @@ def C(t, D, cap_t):
 
     return cap
 
-
-def get_temp(start_date, end_date):
-    '''
-    Função que retorna um array com a temperatura média em um determinado intervalo de 
-    tempo.
-
-    :params start_date: string. Data no formato: %Y-%m-%d.
-    :params end_date: string. Data no formato: %Y-%m-%d.
-
-    :returns: array.
-    '''
-    
-    df_we = get_weather_data()
-    
-    df_we = df_we.loc[(df_we.index >= start_date) & (df_we.index <= end_date)]
-    
-    return df_we['temp_mean-celsius'].values
-
-def theta_m(t, temp, fixed): 
+#def theta_m(t, temp, fixed): 
     '''
     Função que retorna um valor para theta_m baseado na temperatura seguindo os
     valores salvos em um dicionário previamente calculado usando os trabalhos do Yang.
@@ -170,11 +112,11 @@ def theta_m(t, temp, fixed):
     if fixed == True:
         par = 0.11
     else: 
-        par = dict_theta_m[temp[int(t)]]
+        par = interpolate_params(temp, dict_theta_m)(t)
 
     return par
 
-def gamma_m(t,temp, fixed):
+#def gamma_m(t,temp, fixed):
     '''
     Função que retorna um valor para gamma_m baseado na temperatura seguindo os
     valores salvos em um dicionário previamente calculado usando os trabalhos do Yang.
@@ -189,11 +131,11 @@ def gamma_m(t,temp, fixed):
     if fixed == True:
         par = 0.095
     else:
-        par = dict_gamma_m[temp[int(t)]]
+        par = interpolate_params(temp, dict_gamma_m)(t)
     
     return par
 
-def mu_a(t, temp, fixed):
+#def mu_a(t, temp, fixed):
     '''
     Função que retorna um valor para mu_a baseado na temperatura seguindo os
     valores salvos em um dicionário previamente calculado usando os trabalhos do Yang.
@@ -208,11 +150,11 @@ def mu_a(t, temp, fixed):
     if fixed == True:
         par = 0.24
     else:
-        par = dict_mu_a[temp[int(t)]]
+        par = interpolate_params(temp, dict_mu_a)(t)
 
     return par
 
-def mu_m(t, temp, fixed):
+#def mu_m(t, temp, fixed):
     '''
     Função que retorna um valor para mu_m baseado na temperatura seguindo os
     valores salvos em um dicionário previamente calculado usando os trabalhos do Yang.
@@ -228,11 +170,11 @@ def mu_m(t, temp, fixed):
         par = 0.055
 
     else:
-        par = dict_mu_m[temp[int(t)]]
+        par = interpolate_params(temp, dict_mu_m)(t)
     
     return par
 
-def d(t,temp, fixed):
+#def d(t,temp, fixed):
     '''
     Função que retorna um valor para delta baseado na temperatura seguindo os
     valores salvos em um dicionário previamente calculado usando os trabalhos do Yang.
@@ -247,12 +189,12 @@ def d(t,temp, fixed):
     if fixed == True:
         par = 5.6
     else:
-        par = dict_d[temp[int(t)]]
-
+        par = interpolate_params(temp, dict_d)(t)
+    
     return par
 
 
-def system_odes(t,x, param_fit, param_fixed, temp, cap, fixed = True):
+def system_odes(t,x, param_fit, param_ento, param_fixed):
     '''
     Função que implementa o sistema de equações. 
     :params param_fit: tuple. parâmetros que serão fitados. 
@@ -266,10 +208,12 @@ def system_odes(t,x, param_fit, param_fixed, temp, cap, fixed = True):
     #definindo parâmetros que vão ser fitados
     b, beta = param_fit 
 
+    d, gamma_m, mu_a, mu_m, theta_m, C  = param_ento
+
     beta_m = beta
     beta_h = beta
 
-    MU_H, THETA_H, ALPHA_H, K, C_A, C_M, D = param_fixed
+    MU_H, THETA_H, ALPHA_H, K, C_A, C_M  = param_fixed
 
     #Colocando cada variável em uma posição:
     A  = x[0] #Aquatic mosquito population
@@ -287,19 +231,20 @@ def system_odes(t,x, param_fit, param_fixed, temp, cap, fixed = True):
     H = Hs+He+Hi+Hr #População total de humanos
     
     #Definindo cada ODE:
-    dA_dt  = K*d(t,temp, fixed)*(1-(A/C(t, D, cap)))*M - (gamma_m(t,temp, fixed) + mu_a(t,temp, fixed) + C_A)*A
-    dMs_dt = gamma_m(t,temp, fixed)*A - (b*beta_m*Ms*Hi)/H - (mu_m(t,temp, fixed) + C_M)*Ms
-    dMe_dt = (b*beta_m*Ms*Hi)/H - (theta_m(t,temp, fixed ) + mu_m(t,temp, fixed) + C_M)*Me
-    dMi_dt = theta_m(t,temp, fixed)*Me - (mu_m(t,temp, fixed) + C_M)*Mi
-    dHs_dt = MU_H*(H-Hs) - (b*beta_h*Hs*Mi)/H
-    dHe_dt = (b*beta_h*Hs*Mi)/H - (THETA_H + MU_H)*He
+    dA_dt  = K*d(t)*(1-(A/C(t)))*M - (gamma_m(t) + mu_a(t) + C_A)*A
+    dMs_dt = gamma_m(t)*A - (b(t)*beta_m(t)*Ms*Hi)/H - (mu_m(t) + C_M)*Ms
+    dMe_dt = (b(t)*beta_m(t)*Ms*Hi)/H - (theta_m(t) + mu_m(t) + C_M)*Me
+    dMi_dt = theta_m(t)*Me - (mu_m(t) + C_M)*Mi
+    dHs_dt = MU_H*(H-Hs) - (b(t)*beta_h(t)*Hs*Mi)/H
+    dHe_dt = (b(t)*beta_h(t)*Hs*Mi)/H - (THETA_H + MU_H)*He
     dHi_dt = THETA_H*He - (ALPHA_H + MU_H)*Hi
     dHr_dt = ALPHA_H*Hi - MU_H*Hr
 
     return [dA_dt, dMs_dt, dMe_dt, dMi_dt, dHs_dt, dHe_dt, dHi_dt, dHr_dt]
 
 
-def solve_model(t, y0, param_fit, param_fixed, temp, cap, fixed):
+def solve_model(t, y0, param_fit, param_ento, param_fixed):
+
     '''
     Função que computa a solução numérica do sistema de equações. 
     
@@ -313,8 +258,7 @@ def solve_model(t, y0, param_fit, param_fixed, temp, cap, fixed):
     :params fixed: boolean. Se True serão usados os parâmetros ontomológicos fixos. 
     '''
 
-    
-    r  = solve_ivp(system_odes, t_span = [ t[0], t[-1]], y0 = y0, t_eval = t, args=(param_fit, param_fixed, temp, cap, fixed)) 
+    r  = solve_ivp(system_odes, t_span = [ t[0], t[-1]], y0 = y0, t_eval = t, args=(param_fit, param_ento, param_fixed)) 
 
     return r 
 

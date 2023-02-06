@@ -7,6 +7,9 @@ a partir do valor máximo e mínimo da série histórica de temperaturas na cida
 Os valores adotados se baseiam no trabalho de Yang. 
 '''
 
+import numpy as np
+from scipy import interpolate
+
 dict_d = {-1.8: 0.9485,
   -1.7: 0.9485,
   -1.6: 0.9485,
@@ -2195,3 +2198,125 @@ dict_mu_m = {-1.8: 0.086022,
   41.5: 0.052464,
   41.6: 0.052464,
   41.7: 0.052464}
+
+
+def interpolate_params(temp, dict_values): 
+
+    '''
+    Função que retorna uma função que relacionado cada instante de tempo t com um 
+    valor salvo em dict_values. 
+    
+    A partir dos valores de temperatura em temp encontramos os respectivos valores
+    do parâmetro e a partir deles usamos o método  interpolate.interp1d() para encontrar
+    o valor do parâmetro para cada instante t. Fazemos isso para evitar descontinuidades
+    na integração do modelo. 
+    
+    :params temp: array. Array com as temperaturas para os respectivos dias.
+    :params dict_values: dictionary. As "chaves" são os valores de temperatura e os "valores" é o valor do 
+    parâmetro associado com esssa temperatura. 
+    
+    :returns: scipy.interpolate._interpolate.interp1d. 
+    ''' 
+    
+    values = np.array([dict_values[T] for T in temp])
+    
+    dias = np.arange(0, len(temp))
+  
+    f = interpolate.interp1d(dias, values)
+
+    return f
+
+
+def theta_m(temp): 
+    
+    par = interpolate_params(temp, dict_theta_m)
+
+    return par
+
+def gamma_m(temp):
+
+    par = interpolate_params(temp, dict_gamma_m)
+    
+    return par
+
+def mu_a(temp):
+
+    par = interpolate_params(temp, dict_mu_a)
+
+    return par
+
+def mu_m(temp):
+
+    par = interpolate_params(temp, dict_mu_m)
+    
+    return par
+
+def d(temp):
+    
+    par = interpolate_params(temp, dict_d)
+    
+    return par
+
+def sup_cap_yang(df, k=7,w1=0.5, C0=5,C1=30,C2 =0.1):
+    '''
+    Função que realiza o cálculo da capacidade suporte variando de acordo com os dados 
+    climáticos seguindo a formulação do Yang. 
+
+    :params df: pd.DataFrame. O dataframe, obrigatoriamente, deve ter as colunas:
+                             - "daily_precipitation-mm"
+                             - "temp_min-celsius"
+                             - "temp_mean-celsius"
+
+    :params k = 7: número de dias anteriores que a chuva vai afetar
+    :params w1 = 0.5: efeito residual de chuvas passadas [1/ºC]
+    :params C0 = 5: Capacidade da chuva de produzir novos breeding sites
+    :params C1 = 30: Quanticade crítica de chuva na formação de breeding sites [mm]
+    :params C2 = 0.1: Variação independente nos breeding sites
+    '''
+    
+
+    #chuva, temperatura mínima, máxima no dia j
+    W = df["daily_precipitation-mm"]
+    T_min = df["temp_min-celsius"]
+    T_max = df["temp_mean-celsius"]
+    W_m = []
+
+    n = df.shape[0]
+
+    #números abaixo de 7 é 2015 !!
+    for j in range(k,n,1):#passagem dos dias a partir de k dias j=7 é dia 1
+        #somatório para o W_m(chuvas dos dias anteriores ao j-th dia)
+        soma = 0
+        for i in range(1,k+1,1):# somatória sempre de 1 até k dias anteriores
+            soma += (W[j-i])/(w1*(T_max[j-i]+T_min[j-i]))**i #summation
+
+        W_m.append(soma) #W_m[0] será j=7
+
+    #Os k primeiros valores do C são NaN
+    C = C2 + (C0*(W[k:]+ W_m))/(C1 + W[k:] + W_m)
+   
+    return C 
+  
+
+def C_yang(df_we,k=7,w1=0.5, C0=5,C1=30,C2 =0.1):
+
+  values = sup_cap_yang(df_we, k, w1, C0, C1, C2)*(10**4)
+    
+  dias = np.arange(0, len(values))
+  
+  f = interpolate.interp1d(dias, values)
+
+  return f
+
+
+def sup_cap_sin(t, C0, epsilon, t_omega, phi):
+    
+    omega = (2*np.pi)/t_omega
+    
+    C = C0*(1 + epsilon*np.cos(omega*t + phi))
+    return C
+
+def C_sin(t): 
+
+    return sup_cap_sin(t, C0, epsilon, t_omega, phi)
+  

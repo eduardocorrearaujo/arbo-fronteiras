@@ -131,3 +131,20 @@ def plot_data(df):
 
 
     plt.show()
+
+def get_temp(start_date, end_date):
+    '''
+    Função que retorna um array com a temperatura média em um determinado intervalo de 
+    tempo.
+
+    :params start_date: string. Data no formato: %Y-%m-%d.
+    :params end_date: string. Data no formato: %Y-%m-%d.
+
+    :returns: array.
+    '''
+    
+    df_we = get_weather_data()
+    
+    df_we = df_we.loc[(df_we.index >= start_date) & (df_we.index <= end_date)]
+    
+    return df_we['temp_mean-celsius'].values
